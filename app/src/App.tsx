@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
-import type { Pokemon, TypeChart, StatKey } from "./types";
-import { loadPokemon, loadTypeChart } from "./data";
+import type { Pokemon, StatKey } from "./types";
+import { loadPokemon, loadTypeList } from "./data";
 import { PokemonCard, PinPlaceholderCard } from "./components/PokemonCard";
 import { Filters } from "./components/Filters";
 import type { FilterState } from "./components/Filters";
@@ -16,15 +16,15 @@ const DEFAULT_FILTERS: FilterState = {
 
 export default function App() {
   const [pokemon, setPokemon] = useState<Pokemon[]>([]);
-  const [typeChart, setTypeChart] = useState<TypeChart | null>(null);
+  const [allTypes, setAllTypes] = useState<string[] | null>(null);
   // Each inner array is one pinned list; start with one empty list
   const [pinnedLists, setPinnedLists] = useState<number[][]>([[]]);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
   useEffect(() => {
-    Promise.all([loadPokemon(), loadTypeChart()]).then(([p, tc]) => {
+    Promise.all([loadPokemon(), loadTypeList()]).then(([p, types]) => {
       setPokemon(p);
-      setTypeChart(tc);
+      setAllTypes(types);
     });
   }, []);
 
@@ -100,8 +100,8 @@ export default function App() {
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "calc(100vh - 53px)" }}>
         {/* Sidebar */}
         <aside style={{ borderRight: "1px solid #222", padding: "20px 18px", overflowY: "auto", background: "#131313" }}>
-          {typeChart ? (
-            <Filters filters={filters} allTypes={typeChart.types} onChange={setFilters} />
+          {allTypes ? (
+            <Filters filters={filters} allTypes={allTypes} onChange={setFilters} />
           ) : null}
         </aside>
 

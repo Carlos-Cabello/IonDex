@@ -37,11 +37,6 @@ export const SEASONS: Season[] = [
   { key: "m-1", label: "Season M-1" },
 ];
 
-export interface TypeChart {
-  types: string[];
-  matrix: Record<string, Record<string, number>>;
-}
-
 export type StatKey = "hp" | "atk" | "def" | "spa" | "spd" | "spe";
 
 export const STAT_LABELS: Record<StatKey, string> = {
