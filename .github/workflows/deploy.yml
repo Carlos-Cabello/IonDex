@@ -33,9 +33,6 @@ jobs:
         run: npm ci
         working-directory: app
 
-      - name: Build data
-        run: node scripts/build-data.js
-
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
