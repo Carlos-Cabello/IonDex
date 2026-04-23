@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo } from "react";
 import type { Pokemon, StatKey } from "./types";
-import { loadPokemon, loadTypeList } from "./data";
-import { PokemonCard, PinPlaceholderCard } from "./components/PokemonCard";
+import { loadPokemon } from "./data";
+import { PokemonCard, FormCard, PinPlaceholderCard } from "./components/PokemonCard";
 import { Filters } from "./components/Filters";
 import type { FilterState } from "./components/Filters";
 
 const DEFAULT_FILTERS: FilterState = {
   season: "m-1",
   search: "",
-  types: [],
   sortBy: "id",
   sortDir: "asc",
   minStats: {},
@@ -16,17 +15,22 @@ const DEFAULT_FILTERS: FilterState = {
 
 export default function App() {
   const [pokemon, setPokemon] = useState<Pokemon[]>([]);
-  const [allTypes, setAllTypes] = useState<string[] | null>(null);
-  // Each inner array is one pinned list; start with one empty list
-  const [pinnedLists, setPinnedLists] = useState<number[][]>([[]]);
+  const [pinnedLists, setPinnedLists] = useState<number[][]>(() => {
+    try {
+      const saved = localStorage.getItem("pinnedLists");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [[]];
+  });
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
   useEffect(() => {
-    Promise.all([loadPokemon(), loadTypeList()]).then(([p, types]) => {
-      setPokemon(p);
-      setAllTypes(types);
-    });
+    loadPokemon().then(setPokemon);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("pinnedLists", JSON.stringify(pinnedLists));
+  }, [pinnedLists]);
 
   const pokemonById = useMemo(() => {
     const map = new Map<number, Pokemon>();
@@ -37,16 +41,23 @@ export default function App() {
   // All pinned IDs across all lists (for highlight in main grid)
   const allPinnedIds = useMemo(() => new Set(pinnedLists.flat()), [pinnedLists]);
 
-  function togglePin(id: number) {
+  function addToActive(id: number) {
     setPinnedLists((lists) => {
-      let next;
-      if (lists.some((l) => l.includes(id))) {
-        next = lists.map((l) => l.filter((x) => x !== id));
-      } else {
-        next = lists.map((l, i) => (i === lists.length - 1 ? [...l, id] : l));
-      }
-      // Remove empty non-last lists
-      return next.filter((l, i) => i === next.length - 1 || l.length > 0);
+      const active = lists[lists.length - 1];
+      if (active.includes(id)) return lists;
+      const next = [...lists];
+      next[next.length - 1] = [...active, id];
+      return next;
+    });
+  }
+
+  function removeFromActive(cardIdx: number) {
+    setPinnedLists((lists) => {
+      const next = [...lists];
+      const active = [...next[next.length - 1]];
+      active.splice(cardIdx, 1);
+      next[next.length - 1] = active;
+      return next;
     });
   }
 
@@ -66,10 +77,6 @@ export default function App() {
       list = list.filter(
         (p) => p.name.toLowerCase().includes(q) || p.slug.includes(q) || String(p.id) === q
       );
-    }
-
-    if (filters.types.length > 0) {
-      list = list.filter((p) => filters.types.every((t) => p.types.includes(t)));
     }
 
     for (const [stat, min] of Object.entries(filters.minStats) as [StatKey, number | undefined][]) {
@@ -100,9 +107,7 @@ export default function App() {
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "calc(100vh - 53px)" }}>
         {/* Sidebar */}
         <aside style={{ borderRight: "1px solid #222", padding: "20px 18px", overflowY: "auto", background: "#131313" }}>
-          {allTypes ? (
-            <Filters filters={filters} allTypes={allTypes} onChange={setFilters} />
-          ) : null}
+          <Filters filters={filters} onChange={setFilters} />
         </aside>
 
         {/* Main grid */}
@@ -110,14 +115,16 @@ export default function App() {
 
           {/* Pinned lists */}
           {pinnedLists.map((list, listIdx) => {
-            const isLast = listIdx === pinnedLists.length - 1;
-            const cards = list.map((id) => pokemonById.get(id)).filter(Boolean) as Pokemon[];
+            const isActive = listIdx === pinnedLists.length - 1;
             return (
               <div key={listIdx} style={{ marginBottom: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <span style={{ color: "#3b82f6", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <span style={{ color: isActive ? "#3b82f6" : "#555", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     {`List ${listIdx + 1}`}
                   </span>
+                  {!isActive && (
+                    <span style={{ color: "#444", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>locked</span>
+                  )}
                   <button
                     onClick={() => pinnedLists.length > 1 && deleteList(listIdx)}
                     disabled={pinnedLists.length === 1}
@@ -129,16 +136,24 @@ export default function App() {
                   </button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-                  {cards.length === 0
+                  {list.length === 0
                     ? <PinPlaceholderCard />
-                    : cards.map((p) => (
-                        <PokemonCard key={p.id} pokemon={p} onClick={() => togglePin(p.id)} />
-                      ))
+                    : list.map((id, cardIdx) => {
+                        const p = pokemonById.get(id);
+                        if (!p) return null;
+                        return (
+                          <PokemonCard
+                            key={`${id}-${cardIdx}`}
+                            pokemon={p}
+                            onClick={isActive ? () => removeFromActive(cardIdx) : () => addToActive(id)}
+                          />
+                        );
+                      })
                   }
                 </div>
 
                 {/* Divider — clickable only on the last list when it has cards */}
-                <AddListDivider isLast={isLast} disabled={isLast && list.length === 0} onAdd={addList} />
+                <AddListDivider isLast={isActive} disabled={isActive && list.length === 0} onAdd={addList} />
               </div>
             );
           })}
@@ -151,9 +166,12 @@ export default function App() {
           {/* Main grid */}
           {!isLoading && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-              {filtered.map((p) => (
-                <PokemonCard key={p.id} pokemon={p} pinned={allPinnedIds.has(p.id)} onClick={() => togglePin(p.id)} />
-              ))}
+              {filtered.flatMap((p) => [
+                <PokemonCard key={p.id} pokemon={p} pinned={allPinnedIds.has(p.id)} onClick={() => addToActive(p.id)} />,
+                ...p.forms.map((form) => (
+                  <FormCard key={form.id} pokemon={p} form={form} />
+                )),
+              ])}
             </div>
           )}
         </main>

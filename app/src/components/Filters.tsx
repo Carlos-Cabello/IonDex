@@ -1,11 +1,9 @@
-import { TYPE_COLORS, TYPE_TEXT } from "../typeColors";
 import type { StatKey } from "../types";
 import { STAT_LABELS, SEASONS } from "../types";
 
 export interface FilterState {
   season: string;
   search: string;
-  types: string[];
   sortBy: StatKey | "bst" | "id";
   sortDir: "asc" | "desc";
   minStats: Partial<Record<StatKey, number>>;
@@ -13,7 +11,6 @@ export interface FilterState {
 
 interface Props {
   filters: FilterState;
-  allTypes: string[];
   onChange: (f: FilterState) => void;
 }
 
@@ -28,16 +25,9 @@ const SORT_OPTIONS: Array<{ value: FilterState["sortBy"]; label: string }> = [
   { value: "hp", label: "HP" },
 ];
 
-export function Filters({ filters, allTypes, onChange }: Props) {
+export function Filters({ filters, onChange }: Props) {
   function set(patch: Partial<FilterState>) {
     onChange({ ...filters, ...patch });
-  }
-
-  function toggleType(type: string) {
-    const next = filters.types.includes(type)
-      ? filters.types.filter((t) => t !== type)
-      : [...filters.types, type];
-    set({ types: next });
   }
 
   function setMinStat(stat: StatKey, val: string) {
@@ -95,38 +85,6 @@ export function Filters({ filters, allTypes, onChange }: Props) {
               >
                 <span style={{ fontSize: 14 }}>🏆</span>
                 {s.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Type filter */}
-      <div>
-        <div style={{ color: "#666", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-          Type
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-          {allTypes.map((type) => {
-            const active = filters.types.includes(type);
-            return (
-              <button
-                key={type}
-                onClick={() => toggleType(type)}
-                style={{
-                  background: active ? (TYPE_COLORS[type] ?? "#aaa") : "#1e1e1e",
-                  color: active ? (TYPE_TEXT[type] ?? "#fff") : "#666",
-                  border: `1px solid ${active ? "transparent" : "#333"}`,
-                  borderRadius: 4,
-                  padding: "3px 10px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  cursor: "pointer",
-                }}
-              >
-                {type}
               </button>
             );
           })}

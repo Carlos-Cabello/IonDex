@@ -1,8 +1,8 @@
 export interface PokemonForm {
   id: number;
   slug: string;
-  label: string;
   types: string[];
+  abilities: string[];
   hp: number;
   atk: number;
   def: number;
@@ -10,6 +10,10 @@ export interface PokemonForm {
   spd: number;
   spe: number;
   bst: number;
+}
+
+export interface MegaForm extends PokemonForm {
+  label: string;
 }
 
 export interface Pokemon {
@@ -24,8 +28,10 @@ export interface Pokemon {
   spd: number;
   spe: number;
   bst: number;
+  abilities: string[];
   seasons: string[];
-  megas: PokemonForm[];
+  megas: MegaForm[];
+  forms: PokemonForm[];
 }
 
 export interface Season {

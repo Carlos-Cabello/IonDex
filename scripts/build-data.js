@@ -24,8 +24,10 @@ function parseCSV(filename) {
 const pokemon = parseCSV("pokemon.csv");
 const pokemonStats = parseCSV("pokemon_stats.csv");
 const pokemonTypes = parseCSV("pokemon_types.csv");
+const pokemonAbilities = parseCSV("pokemon_abilities.csv");
 const pokemonSpeciesNames = parseCSV("pokemon_species_names.csv");
 const pokemonDexNumbers = parseCSV("pokemon_dex_numbers.csv");
+const abilityNames = parseCSV("ability_names.csv");
 const types = parseCSV("types.csv");
 const typeEfficacy = parseCSV("type_efficacy.csv");
 
@@ -53,6 +55,24 @@ for (const row of typeEfficacy) {
 const speciesNameById = {};
 for (const row of pokemonSpeciesNames) {
   if (row.local_language_id === "9") speciesNameById[row.pokemon_species_id] = row.name;
+}
+
+// --- Build ability_id -> English name map ---
+const abilityNameById = {};
+for (const row of abilityNames) {
+  if (row.local_language_id === "9") abilityNameById[row.ability_id] = row.name;
+}
+
+// --- Build pokemon_id -> abilities array ---
+const abilitiesByPokemonId = {};
+for (const row of pokemonAbilities) {
+  if (!abilitiesByPokemonId[row.pokemon_id]) abilitiesByPokemonId[row.pokemon_id] = [];
+  const name = abilityNameById[row.ability_id];
+  if (name) abilitiesByPokemonId[row.pokemon_id].push({ name, slot: Number(row.slot) });
+}
+for (const id of Object.keys(abilitiesByPokemonId)) {
+  abilitiesByPokemonId[id].sort((a, b) => a.slot - b.slot);
+  abilitiesByPokemonId[id] = abilitiesByPokemonId[id].map((a) => a.name);
 }
 
 // --- Build stats map: pokemon_id -> {hp, atk, def, spa, spd, spe} ---
@@ -97,8 +117,12 @@ function buildFormEntry(p) {
   const stats = statsById[p.id] || {};
   const { hp = 0, atk = 0, def = 0, spa = 0, spd = 0, spe = 0 } = stats;
   const types = (typesById[p.id] || []).filter(Boolean);
-  return { id: Number(p.id), slug: p.identifier, types, hp, atk, def, spa, spd, spe, bst: hp + atk + def + spa + spd + spe };
+  const abilities = abilitiesByPokemonId[p.id] || [];
+  return { id: Number(p.id), slug: p.identifier, types, abilities, hp, atk, def, spa, spd, spe, bst: hp + atk + def + spa + spd + spe };
 }
+
+const SKIP_FORM_PATTERNS = ["totem", "gmax", "eternamax"];
+const SKIP_FORM_SLUGS = new Set(["pikachu-starter", "castform-sunny", "castform-rainy", "castform-snowy", "greninja-ash"]);
 
 // Group non-default mega forms by species_id
 const megasBySpecies = {};
@@ -114,6 +138,31 @@ for (const p of pokemon) {
   megasBySpecies[p.species_id].push({ ...buildFormEntry(p), label });
 }
 
+// Group non-default, non-mega alternate forms by species_id
+// Skip cosmetic forms: same BST and same types as the default form
+const altFormsBySpecies = {};
+for (const p of pokemon) {
+  if (p.is_default === "1") continue;
+  if (p.identifier.includes("mega")) continue;
+  if (SKIP_FORM_PATTERNS.some((pat) => p.identifier.includes(pat))) continue;
+  if (SKIP_FORM_SLUGS.has(p.identifier)) continue;
+  if (!championsSpecies.has(p.species_id)) continue;
+
+  const defaultId = speciesDefaultPokemonId[p.species_id];
+  if (defaultId) {
+    const ds = statsById[defaultId] || {};
+    const defaultBst = (ds.hp || 0) + (ds.atk || 0) + (ds.def || 0) + (ds.spa || 0) + (ds.spd || 0) + (ds.spe || 0);
+    const defaultTypes = (typesById[defaultId] || []).filter(Boolean).sort().join(",");
+    const fs = statsById[p.id] || {};
+    const formBst = (fs.hp || 0) + (fs.atk || 0) + (fs.def || 0) + (fs.spa || 0) + (fs.spd || 0) + (fs.spe || 0);
+    const formTypes = (typesById[p.id] || []).filter(Boolean).sort().join(",");
+    if (formBst === defaultBst && formTypes === defaultTypes) continue;
+  }
+
+  if (!altFormsBySpecies[p.species_id]) altFormsBySpecies[p.species_id] = [];
+  altFormsBySpecies[p.species_id].push(buildFormEntry(p));
+}
+
 // --- Assemble Pokemon list (default forms, Champions only) ---
 const pokemonList = pokemon
   .filter((p) => p.is_default === "1" && championsPokemonIds.has(p.id))
@@ -124,14 +173,18 @@ const pokemonList = pokemon
     const name = speciesNameById[p.species_id] || p.identifier;
     const types = (typesById[p.id] || []).filter(Boolean);
     const megas = megasBySpecies[p.species_id] || [];
+    const forms = altFormsBySpecies[p.species_id] || [];
+    const abilities = abilitiesByPokemonId[p.id] || [];
     return {
       id: Number(p.id),
       name,
       slug: p.identifier,
       types,
+      abilities,
       hp, atk, def, spa, spd, spe, bst,
       seasons: ["m-1"],
       megas,
+      forms,
     };
   })
   .filter((p) => p.types.length > 0);
@@ -141,5 +194,6 @@ writeFileSync(join(OUT_DIR, "pokemon.json"), JSON.stringify(pokemonList));
 writeFileSync(join(OUT_DIR, "type-chart.json"), JSON.stringify({ types: realTypes, matrix: efficacyMatrix }));
 
 const megaCount = pokemonList.filter((p) => p.megas.length > 0).length;
-console.log(`Built ${pokemonList.length} Pokemon (${megaCount} with mega forms, Season M-1 only)`);
+const formCount = pokemonList.filter((p) => p.forms.length > 0).length;
+console.log(`Built ${pokemonList.length} Pokemon (${megaCount} with megas, ${formCount} with alt forms, Season M-1 only)`);
 console.log(`Built type chart for ${realTypes.length} types`);
