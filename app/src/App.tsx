@@ -23,6 +23,7 @@ export default function App() {
     return [[]];
   });
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     loadPokemon().then(setPokemon);
@@ -104,10 +105,27 @@ export default function App() {
         <span style={{ color: "#555", fontSize: 13 }}>Competitive Reference</span>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "calc(100vh - 53px)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: sidebarOpen ? "280px 1fr" : "32px 1fr", height: "calc(100vh - 53px)", transition: "grid-template-columns 0.2s ease" }}>
         {/* Sidebar */}
-        <aside style={{ borderRight: "1px solid #222", padding: "20px 18px", overflowY: "auto", background: "#131313" }}>
-          <Filters filters={filters} onChange={setFilters} />
+        <aside style={{ borderRight: "1px solid #222", background: "#131313", overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
+          <button
+            onClick={() => setSidebarOpen((o) => !o)}
+            style={{
+              position: "absolute", top: 12, right: 8, zIndex: 1,
+              background: "none", border: "none", color: "#555", cursor: "pointer",
+              fontSize: 16, lineHeight: 1, padding: "2px 4px",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#aaa"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#555"; }}
+          >
+            {sidebarOpen ? "‹" : "›"}
+          </button>
+          {sidebarOpen && (
+            <div style={{ padding: "20px 18px", overflowY: "auto", flex: 1 }}>
+              <Filters filters={filters} onChange={setFilters} />
+            </div>
+          )}
         </aside>
 
         {/* Main grid */}
