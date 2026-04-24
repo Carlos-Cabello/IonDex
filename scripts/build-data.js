@@ -20,6 +20,39 @@ function parseCSV(filename) {
   });
 }
 
+function parseCSVRobust(filename) {
+  const text = readFileSync(join(CSV_DIR, filename), "utf8").replace(/^﻿/, "");
+  const headers = [];
+  const rows = [];
+  let current = "";
+  let inQuotes = false;
+  let fields = [];
+  let headersParsed = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQuotes && text[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (c === "," && !inQuotes) {
+      fields.push(current); current = "";
+    } else if ((c === "\n" || c === "\r") && !inQuotes) {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      fields.push(current); current = "";
+      if (fields.some(f => f !== "")) {
+        if (!headersParsed) { headers.push(...fields); headersParsed = true; }
+        else rows.push(Object.fromEntries(headers.map((h, j) => [h, fields[j] ?? ""])));
+      }
+      fields = [];
+    } else { current += c; }
+  }
+  if (current || fields.length > 0) {
+    fields.push(current);
+    if (fields.some(f => f !== "") && headersParsed)
+      rows.push(Object.fromEntries(headers.map((h, j) => [h, fields[j] ?? ""])));
+  }
+  return rows;
+}
+
 // --- Load raw data ---
 const pokemon = parseCSV("pokemon.csv");
 const pokemonStats = parseCSV("pokemon_stats.csv");
@@ -28,6 +61,7 @@ const pokemonAbilities = parseCSV("pokemon_abilities.csv");
 const pokemonSpeciesNames = parseCSV("pokemon_species_names.csv");
 const pokemonDexNumbers = parseCSV("pokemon_dex_numbers.csv");
 const abilityNames = parseCSV("ability_names.csv");
+const abilityProse = parseCSVRobust("ability_prose.csv");
 const types = parseCSV("types.csv");
 const typeEfficacy = parseCSV("type_efficacy.csv");
 
@@ -63,7 +97,16 @@ for (const row of abilityNames) {
   if (row.local_language_id === "9") abilityNameById[row.ability_id] = row.name;
 }
 
-// --- Build pokemon_id -> abilities array ---
+// --- Build ability_id -> English short description map ---
+function stripAbilityMarkup(text) {
+  return (text || "").replace(/\[([^\]]*)\]\{[^}]*\}/g, (_, m) => m).replace(/\s+/g, " ").trim();
+}
+const abilityDescById = {};
+for (const row of abilityProse) {
+  if (row.local_language_id === "9") abilityDescById[row.ability_id] = stripAbilityMarkup(row.short_effect);
+}
+
+// --- Build ability_id -> abilities array ---
 const abilitiesByPokemonId = {};
 for (const row of pokemonAbilities) {
   if (!abilitiesByPokemonId[row.pokemon_id]) abilitiesByPokemonId[row.pokemon_id] = [];
@@ -191,11 +234,26 @@ const pokemonList = pokemon
   })
   .filter((p) => p.types.length > 0);
 
+// --- Build ability name -> description map (only abilities used in the list) ---
+const allAbilityNames = new Set(
+  pokemonList.flatMap((p) => [
+    ...p.abilities,
+    ...p.megas.flatMap((m) => m.abilities),
+    ...p.forms.flatMap((f) => f.abilities),
+  ])
+);
+const abilityDescs = {};
+for (const [id, name] of Object.entries(abilityNameById)) {
+  if (allAbilityNames.has(name) && abilityDescById[id]) abilityDescs[name] = abilityDescById[id];
+}
+
 // --- Write output ---
 writeFileSync(join(OUT_DIR, "pokemon.json"), JSON.stringify(pokemonList));
 writeFileSync(join(OUT_DIR, "type-chart.json"), JSON.stringify({ types: realTypes, matrix: efficacyMatrix }));
+writeFileSync(join(OUT_DIR, "abilities.json"), JSON.stringify(abilityDescs));
 
 const megaCount = pokemonList.filter((p) => p.megas.length > 0).length;
 const formCount = pokemonList.filter((p) => p.forms.length > 0).length;
 console.log(`Built ${pokemonList.length} Pokemon (${megaCount} with megas, ${formCount} with alt forms, Season M-1 only)`);
 console.log(`Built type chart for ${realTypes.length} types`);
+console.log(`Built ability descriptions for ${Object.keys(abilityDescs).length} abilities`);

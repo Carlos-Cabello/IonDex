@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import type { Pokemon, StatKey } from "./types";
-import { loadPokemon } from "./data";
+import { loadPokemon, loadAbilities } from "./data";
 import { PokemonCard, FormCard, PinPlaceholderCard } from "./components/PokemonCard";
 import { Filters } from "./components/Filters";
 import type { FilterState } from "./components/Filters";
@@ -15,6 +15,7 @@ const DEFAULT_FILTERS: FilterState = {
 
 export default function App() {
   const [pokemon, setPokemon] = useState<Pokemon[]>([]);
+  const [abilityDescs, setAbilityDescs] = useState<Record<string, string>>({});
   const [pinnedLists, setPinnedLists] = useState<number[][]>(() => {
     try {
       const saved = localStorage.getItem("pinnedLists");
@@ -38,6 +39,7 @@ export default function App() {
 
   useEffect(() => {
     loadPokemon().then(setPokemon);
+    loadAbilities().then(setAbilityDescs);
   }, []);
 
   useEffect(() => {
@@ -199,6 +201,7 @@ export default function App() {
                             key={`${id}-${cardIdx}`}
                             pokemon={p}
                             compact={isMobile}
+                            abilityDescs={abilityDescs}
                             onClick={isActive ? () => removeFromActive(cardIdx) : () => addToActive(id)}
                           />
                         );
@@ -209,6 +212,7 @@ export default function App() {
                             pokemon={f.pokemon}
                             form={f.form}
                             compact={isMobile}
+                            abilityDescs={abilityDescs}
                             onClick={isActive ? () => removeFromActive(cardIdx) : () => addToActive(id)}
                           />
                         );

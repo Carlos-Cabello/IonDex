@@ -6,6 +6,7 @@ interface Props {
   pokemon: Pokemon;
   pinned?: boolean;
   compact?: boolean;
+  abilityDescs?: Record<string, string>;
   onClick: () => void;
 }
 
@@ -14,7 +15,7 @@ function megaFallbackLetter(label: string): string {
   return ["X", "Y", "Z"].includes(last) ? last : "M";
 }
 
-export function PokemonCard({ pokemon, pinned, compact, onClick }: Props) {
+export function PokemonCard({ pokemon, pinned, compact, abilityDescs, onClick }: Props) {
   const [megaIdx, setMegaIdx] = useState(0);
   const [spriteError, setSpriteError] = useState(false);
 
@@ -127,14 +128,14 @@ export function PokemonCard({ pokemon, pinned, compact, onClick }: Props) {
 
       {!compact && (
         <div style={{ borderTop: "1px solid #2a2a2a", paddingTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-          {displayAbilities.map((a) => <AbilityRow key={a} name={a} />)}
+          {displayAbilities.map((a) => <AbilityRow key={a} name={a} desc={abilityDescs?.[a]} />)}
         </div>
       )}
     </div>
   );
 }
 
-export function FormCard({ pokemon, form, compact, pinned, onClick }: { pokemon: Pokemon; form: PokemonForm; compact?: boolean; pinned?: boolean; onClick?: () => void }) {
+export function FormCard({ pokemon, form, compact, pinned, abilityDescs, onClick }: { pokemon: Pokemon; form: PokemonForm; compact?: boolean; pinned?: boolean; abilityDescs?: Record<string, string>; onClick?: () => void }) {
   const [spriteError, setSpriteError] = useState(false);
   const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${form.id}.png`;
   const spriteSize = compact ? 40 : 56;
@@ -204,7 +205,7 @@ export function FormCard({ pokemon, form, compact, pinned, onClick }: { pokemon:
 
       {!compact && (
         <div style={{ borderTop: "1px solid #1e3a3a", paddingTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-          {form.abilities.map((a) => <AbilityRow key={a} name={a} />)}
+          {form.abilities.map((a) => <AbilityRow key={a} name={a} desc={abilityDescs?.[a]} />)}
         </div>
       )}
     </div>
@@ -220,8 +221,38 @@ function StatMini({ label, value, compact }: { label: string; value: number; com
   );
 }
 
-function AbilityRow({ name }: { name: string }) {
-  return <div style={{ fontSize: 11, color: "#bbb" }}>{name}</div>;
+function AbilityRow({ name, desc }: { name: string; desc?: string }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      style={{ fontSize: 11, color: "#bbb", position: "relative", cursor: desc ? "default" : undefined }}
+      onMouseEnter={() => desc && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {name}
+      {hovered && desc && (
+        <div style={{
+          position: "absolute",
+          bottom: "calc(100% + 4px)",
+          left: 0,
+          background: "#1a1a1a",
+          border: "1px solid #3a3a3a",
+          borderRadius: 6,
+          padding: "6px 8px",
+          fontSize: 11,
+          color: "#ccc",
+          lineHeight: 1.4,
+          width: 200,
+          zIndex: 100,
+          pointerEvents: "none",
+          whiteSpace: "normal",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.6)",
+        }}>
+          {desc}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function PinPlaceholderCard({ compact }: { compact?: boolean }) {
