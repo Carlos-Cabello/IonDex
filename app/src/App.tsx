@@ -50,15 +50,26 @@ export default function App() {
     return map;
   }, [pokemon]);
 
+  const formById = useMemo(() => {
+    const map = new Map<number, { pokemon: Pokemon; form: import("./types").PokemonForm }>();
+    for (const p of pokemon) {
+      for (const form of p.forms) map.set(form.id, { pokemon: p, form });
+    }
+    return map;
+  }, [pokemon]);
+
   // All pinned IDs across all lists (for highlight in main grid)
   const allPinnedIds = useMemo(() => new Set(pinnedLists.flat()), [pinnedLists]);
 
   function addToActive(id: number) {
+    const base = pokemonById.get(id) ?? formById.get(id)?.pokemon ?? null;
+    const group = base ? new Set([base.id, ...base.forms.map((f) => f.id)]) : null;
     setPinnedLists((lists) => {
       const active = lists[lists.length - 1];
       if (active.includes(id)) return lists;
       const next = [...lists];
-      next[next.length - 1] = [...active, id];
+      const filtered = group ? active.filter((eid) => !group.has(eid)) : active;
+      next[next.length - 1] = [...filtered, id];
       return next;
     });
   }
@@ -183,8 +194,7 @@ export default function App() {
                     ? <PinPlaceholderCard compact={isMobile} />
                     : list.map((id, cardIdx) => {
                         const p = pokemonById.get(id);
-                        if (!p) return null;
-                        return (
+                        if (p) return (
                           <PokemonCard
                             key={`${id}-${cardIdx}`}
                             pokemon={p}
@@ -192,6 +202,17 @@ export default function App() {
                             onClick={isActive ? () => removeFromActive(cardIdx) : () => addToActive(id)}
                           />
                         );
+                        const f = formById.get(id);
+                        if (f) return (
+                          <FormCard
+                            key={`${id}-${cardIdx}`}
+                            pokemon={f.pokemon}
+                            form={f.form}
+                            compact={isMobile}
+                            onClick={isActive ? () => removeFromActive(cardIdx) : () => addToActive(id)}
+                          />
+                        );
+                        return null;
                       })
                   }
                 </div>
@@ -213,7 +234,7 @@ export default function App() {
               {filtered.flatMap((p) => [
                 <PokemonCard key={p.id} pokemon={p} compact={isMobile} pinned={allPinnedIds.has(p.id)} onClick={() => addToActive(p.id)} />,
                 ...p.forms.map((form) => (
-                  <FormCard key={form.id} pokemon={p} form={form} compact={isMobile} />
+                  <FormCard key={form.id} pokemon={p} form={form} compact={isMobile} pinned={allPinnedIds.has(form.id)} onClick={() => addToActive(form.id)} />
                 )),
               ])}
             </div>

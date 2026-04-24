@@ -134,7 +134,7 @@ export function PokemonCard({ pokemon, pinned, compact, onClick }: Props) {
   );
 }
 
-export function FormCard({ pokemon, form, compact }: { pokemon: Pokemon; form: PokemonForm; compact?: boolean }) {
+export function FormCard({ pokemon, form, compact, pinned, onClick }: { pokemon: Pokemon; form: PokemonForm; compact?: boolean; pinned?: boolean; onClick?: () => void }) {
   const [spriteError, setSpriteError] = useState(false);
   const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${form.id}.png`;
   const spriteSize = compact ? 40 : 56;
@@ -142,15 +142,28 @@ export function FormCard({ pokemon, form, compact }: { pokemon: Pokemon; form: P
   const gap = compact ? 6 : 8;
 
   return (
-    <div style={{
-      background: "#1a1f1f",
-      border: "1px solid #1e3a3a",
-      borderRadius: 10,
-      padding: pad,
-      display: "flex",
-      flexDirection: "column",
-      gap,
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: pinned ? "#0f1f3d" : "#1a1f1f",
+        border: `1px solid ${pinned ? "#1d4ed8" : "#1e3a3a"}`,
+        borderRadius: 10,
+        padding: pad,
+        cursor: onClick ? "pointer" : "default",
+        transition: "border-color 0.15s, background 0.15s",
+        display: "flex",
+        flexDirection: "column",
+        gap,
+      }}
+      onMouseEnter={onClick ? (e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = pinned ? "#3b82f6" : "#2a5a5a";
+        (e.currentTarget as HTMLDivElement).style.background = pinned ? "#162850" : "#1f2a2a";
+      } : undefined}
+      onMouseLeave={onClick ? (e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = pinned ? "#1d4ed8" : "#1e3a3a";
+        (e.currentTarget as HTMLDivElement).style.background = pinned ? "#0f1f3d" : "#1a1f1f";
+      } : undefined}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: compact ? 8 : 10 }}>
         {spriteError ? (
           <div style={{
