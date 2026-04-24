@@ -102,6 +102,8 @@ for (const p of pokemon) {
 const championsSpecies = new Set(
   pokemonDexNumbers.filter((r) => r.pokedex_id === "36").map((r) => r.species_id)
 );
+// PokeAPI Champions dex is incomplete — add missing species manually (verified via Serebii)
+for (const id of ["59", "428", "461"]) championsSpecies.add(id);
 const championsPokemonIds = new Set(
   [...championsSpecies].map((sid) => speciesDefaultPokemonId[sid]).filter(Boolean)
 );
