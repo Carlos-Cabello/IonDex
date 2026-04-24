@@ -23,7 +23,18 @@ export default function App() {
     return [[]];
   });
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+
+  useEffect(() => {
+    const handler = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setSidebarOpen(true);
+    };
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   useEffect(() => {
     loadPokemon().then(setPokemon);
@@ -101,35 +112,49 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "#111", color: "#eee", fontFamily: "system-ui, sans-serif" }}>
       <header style={{ borderBottom: "1px solid #222", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+        {isMobile && (
+          <button
+            onClick={() => setSidebarOpen((o) => !o)}
+            style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px 0 0" }}
+          >
+            ☰
+          </button>
+        )}
         <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>IonDex</span>
         <span style={{ color: "#555", fontSize: 13 }}>Competitive Reference</span>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: sidebarOpen ? "280px 1fr" : "32px 1fr", height: "calc(100vh - 53px)", transition: "grid-template-columns 0.2s ease" }}>
-        {/* Sidebar */}
-        <aside style={{ borderRight: "1px solid #222", background: "#131313", overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
-          <button
-            onClick={() => setSidebarOpen((o) => !o)}
-            style={{
-              position: "absolute", top: 12, right: 8, zIndex: 1,
-              background: "none", border: "none", color: "#555", cursor: "pointer",
-              fontSize: 16, lineHeight: 1, padding: "2px 4px",
-              flexShrink: 0,
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#aaa"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#555"; }}
-          >
-            {sidebarOpen ? "‹" : "›"}
-          </button>
-          {sidebarOpen && (
-            <div style={{ padding: "20px 18px", overflowY: "auto", flex: 1 }}>
-              <Filters filters={filters} onChange={setFilters} />
-            </div>
-          )}
-        </aside>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : sidebarOpen ? "280px 1fr" : "32px 1fr", height: "calc(100vh - 53px)", transition: "grid-template-columns 0.2s ease", position: "relative" }}>
+        {/* Sidebar — overlay on mobile, column on desktop */}
+        {isMobile ? (
+          sidebarOpen && (
+            <>
+              <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 20 }} />
+              <aside style={{ position: "fixed", left: 0, top: 53, bottom: 0, width: 280, background: "#131313", borderRight: "1px solid #222", overflowY: "auto", padding: "20px 18px", zIndex: 21 }}>
+                <Filters filters={filters} onChange={setFilters} />
+              </aside>
+            </>
+          )
+        ) : (
+          <aside style={{ borderRight: "1px solid #222", background: "#131313", overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
+            <button
+              onClick={() => setSidebarOpen((o) => !o)}
+              style={{ position: "absolute", top: 12, right: 8, zIndex: 1, background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "2px 4px" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#aaa"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#555"; }}
+            >
+              {sidebarOpen ? "‹" : "›"}
+            </button>
+            {sidebarOpen && (
+              <div style={{ padding: "20px 18px", overflowY: "auto", flex: 1 }}>
+                <Filters filters={filters} onChange={setFilters} />
+              </div>
+            )}
+          </aside>
+        )}
 
         {/* Main grid */}
-        <main style={{ overflowY: "auto", padding: "20px 20px" }}>
+        <main style={{ overflowY: "auto", padding: isMobile ? "12px" : "20px" }}>
 
           {/* Pinned lists */}
           {pinnedLists.map((list, listIdx) => {
@@ -153,9 +178,9 @@ export default function App() {
                     ✕
                   </button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? 130 : 180}px, 1fr))`, gap: isMobile ? 8 : 12 }}>
                   {list.length === 0
-                    ? <PinPlaceholderCard />
+                    ? <PinPlaceholderCard compact={isMobile} />
                     : list.map((id, cardIdx) => {
                         const p = pokemonById.get(id);
                         if (!p) return null;
@@ -163,6 +188,7 @@ export default function App() {
                           <PokemonCard
                             key={`${id}-${cardIdx}`}
                             pokemon={p}
+                            compact={isMobile}
                             onClick={isActive ? () => removeFromActive(cardIdx) : () => addToActive(id)}
                           />
                         );
@@ -183,11 +209,11 @@ export default function App() {
 
           {/* Main grid */}
           {!isLoading && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? 130 : 180}px, 1fr))`, gap: isMobile ? 8 : 12 }}>
               {filtered.flatMap((p) => [
-                <PokemonCard key={p.id} pokemon={p} pinned={allPinnedIds.has(p.id)} onClick={() => addToActive(p.id)} />,
+                <PokemonCard key={p.id} pokemon={p} compact={isMobile} pinned={allPinnedIds.has(p.id)} onClick={() => addToActive(p.id)} />,
                 ...p.forms.map((form) => (
-                  <FormCard key={form.id} pokemon={p} form={form} />
+                  <FormCard key={form.id} pokemon={p} form={form} compact={isMobile} />
                 )),
               ])}
             </div>
